@@ -3,7 +3,7 @@
 // === Credit System ===
 const CREDITS_KEY = 'iching_credits';
 const DAILY_FREE = 3;
-const SITE_URL = 'https://azumilove.github.io/iching-oracle';
+const SITE_URL = 'https://azumilove.github.io/ing-oracle';
 
 // Payment links — create these on https://stripe.com (free account, 2 min)
 const PAYMENT_LINKS = {
