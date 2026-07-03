@@ -5,20 +5,28 @@ const CREDITS_KEY = 'iching_credits';
 const DAILY_FREE = 3;
 const SITE_URL = 'https://azumilove.github.io/iching-oracle';
 
-// Payment links — created via Stripe API
-const PAYMENT_LINKS = {
-  pack5:  'https://buy.stripe.com/test_4gMbIT22W9fq63u1Vfgbm00',   // 5 readings — $2.99
-  pack20: 'https://buy.stripe.com/test_6oUbITbDwaju8bC1Vfgbm01',  // 20 readings — $7.99
-  sub:    'https://buy.stripe.com/test_28E28jfTMgHS9fGarLgbm02',      // Unlimited monthly — $4.99/mo
+// Payment gateway — use Gumroad (works from China, auto-delivers license keys)
+// 1. Sign up at https://gumroad.com
+// 2. Create 3 products, enable "Generate license keys"
+// 3. Set post-purchase redirect: https://azumilove.github.io/iching-oracle/?key={license_key}
+// 4. Paste your product URLs below
+const GUMROAD = {
+  pack5:  'https://YOUR_USERNAME.gumroad.com/l/iching-5',   // 5 readings — $2.99
+  pack20: 'https://YOUR_USERNAME.gumroad.com/l/iching-20',  // 20 readings — $7.99
+  sub:    'https://YOUR_USERNAME.gumroad.com/l/iching-sub', // Unlimited monthly — $4.99/mo
 };
 
 // Support link (Buy Me a Coffee / Ko-fi)
 const SUPPORT_LINK = 'https://buymeacoffee.com/YOUR_USERNAME';
 
-// Valid redemption codes — pre-generated, distributed after payment
-// In production, store SHA256 hashes, not plaintext
+// Valid redemption codes — Gumroad auto-generates these as license keys.
+// Paste your generated keys here. Each key = N readings.
+// User gets auto-redeemed when visiting ?key=XXXXX
 const REDEMPTION_PACKS = {
   'FREEREADING': 3,    // Demo — remove in production
+  // Add your Gumroad license keys below, e.g.:
+  // 'ICHING-A1B2-C3D4': 5,
+  // 'ICHING-E5F6-G7H8': 20,
 };
 
 function getCredits() {
@@ -113,7 +121,7 @@ function showCreditModal() {
       <p style="font-size:0.8rem;color:var(--ink-4);text-align:center;margin-bottom:1rem;letter-spacing:0.06em;">ACQUIRE MORE READINGS</p>
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.8rem;margin-bottom:0.8rem;">
-        <a href="${PAYMENT_LINKS.pack5}" target="_blank" rel="noopener" style="text-decoration:none;display:block;padding:1rem 0.8rem;border:1px solid var(--ink-5);text-align:center;transition:all 0.3s;"
+        <a href="${GUMROAD.pack5}" target="_blank" rel="noopener"style="text-decoration:none;display:block;padding:1rem 0.8rem;border:1px solid var(--ink-5);text-align:center;transition:all 0.3s;"
            onmouseover="this.style.borderColor='var(--cinnabar)';this.style.boxShadow='0 4px 12px var(--shadow)'"
            onmouseout="this.style.borderColor='var(--ink-5)';this.style.boxShadow='none'">
           <div style="font-size:1.5rem;margin-bottom:0.3rem;">☯</div>
@@ -121,7 +129,7 @@ function showCreditModal() {
           <div style="color:var(--cinnabar);font-size:1.1rem;">$2.99</div>
           <div style="font-size:0.7rem;color:var(--ink-4);">One-time</div>
         </a>
-        <a href="${PAYMENT_LINKS.pack20}" target="_blank" rel="noopener" style="text-decoration:none;display:block;padding:1rem 0.8rem;border:1px solid var(--cinnabar);text-align:center;transition:all 0.3s;background:rgba(196,58,49,0.04);"
+        <a href="${GUMROAD.pack20}" target="_blank" rel="noopener" style="text-decoration:none;display:block;padding:1rem 0.8rem;border:1px solid var(--cinnabar);text-align:center;transition:all 0.3s;background:rgba(196,58,49,0.04);"
            onmouseover="this.style.boxShadow='0 4px 12px var(--shadow)'"
            onmouseout="this.style.boxShadow='none'">
           <div style="font-size:1.5rem;margin-bottom:0.3rem;">☯☯</div>
@@ -131,7 +139,7 @@ function showCreditModal() {
         </a>
       </div>
 
-      <a href="${PAYMENT_LINKS.sub}" target="_blank" rel="noopener" style="text-decoration:none;display:block;padding:0.9rem;border:1px solid var(--jade);text-align:center;margin-bottom:1.2rem;transition:all 0.3s;"
+      <a href="${GUMROAD.sub}" target="_blank" rel="noopener" style="text-decoration:none;display:block;padding:0.9rem;border:1px solid var(--jade);text-align:center;margin-bottom:1.2rem;transition:all 0.3s;"
          onmouseover="this.style.background='rgba(90,122,106,0.05)'"
          onmouseout="this.style.background='transparent'">
         <span style="font-weight:600;">✨ Unlimited Monthly</span>
@@ -155,7 +163,7 @@ function showCreditModal() {
 
       <p style="margin-top:1.2rem;font-size:0.7rem;color:var(--ink-4);text-align:center;">
         Free readings reset daily at midnight UTC. Credits never expire.<br>
-        Payments processed securely by Stripe.
+        Payments processed securely by Gumroad.
       </p>
     </div>
   `;
@@ -567,8 +575,59 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+// === Auto-Redeem from URL (for Gumroad post-purchase redirect) ===
+function checkAutoRedeem() {
+  const params = new URLSearchParams(window.location.search);
+  const key = params.get('key') || params.get('code') || params.get('license');
+  if (!key) return;
+
+  const result = redeemCode(key);
+  if (result === 'used') {
+    showToast('This code has already been redeemed.');
+  } else if (result === false) {
+    showToast('Invalid code. Please check your email for the correct code.');
+  } else if (result) {
+    showToast(`✓ Payment confirmed! ${result} readings added to your account.`);
+    updateCreditBadge();
+  }
+
+  // Clean URL (don't show the key in browser history)
+  window.history.replaceState({}, '', window.location.pathname);
+}
+
+function showToast(msg) {
+  const existing = document.getElementById('auto-toast');
+  if (existing) existing.remove();
+
+  const toast = document.createElement('div');
+  toast.id = 'auto-toast';
+  toast.style.cssText = `
+    position:fixed;bottom:2rem;left:50%;transform:translateX(-50%);z-index:300;
+    background:var(--ink-1);color:var(--paper);padding:1rem 2rem;
+    font-family:'Cormorant Garamond',serif;font-size:1rem;
+    border:1px solid var(--ink-5);box-shadow:0 8px 30px var(--shadow-strong);
+    animation:slideUp 0.5s cubic-bezier(0.4,0,0.2,1);
+    max-width:90vw;text-align:center;
+  `;
+  toast.textContent = msg;
+  document.body.appendChild(toast);
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transition = 'opacity 0.5s';
+    setTimeout(() => toast.remove(), 500);
+  }, 4000);
+}
+
+// Add slideUp keyframe
+const style = document.createElement('style');
+style.textContent = '@keyframes slideUp{from{opacity:0;transform:translateX(-50%) translateY(20px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}';
+document.head.appendChild(style);
+
 // === Initialize ===
 document.addEventListener('DOMContentLoaded', () => {
+  // Auto-redeem from URL params (Gumroad redirect)
+  checkAutoRedeem();
+
   // Update credit badge
   updateCreditBadge();
 
