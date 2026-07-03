@@ -3,14 +3,22 @@
 // === Credit System ===
 const CREDITS_KEY = 'iching_credits';
 const DAILY_FREE = 3;
-const BUY_LINK = 'https://buymeacoffee.com/YOUR_USERNAME'; // ← Replace with your real link
+const SITE_URL = 'https://azumilove.github.io/iching-oracle';
 
-// Valid redemption codes (SHA256 pre-computed hashes for security)
-const VALID_CODES = {
-  // Demo codes — replace with your real hashed codes
-  'FREEREADING': true,   // Demo only — in production, store SHA256 hashes
-  'WISDOM10': true,
-  'WISDOM50': true,
+// Payment links — create these on https://stripe.com (free account, 2 min)
+const PAYMENT_LINKS = {
+  pack5:  'https://buy.stripe.com/YOUR_PACK_5_LINK',   // 5 readings — $2.99
+  pack20: 'https://buy.stripe.com/YOUR_PACK_20_LINK',  // 20 readings — $7.99
+  sub:    'https://buy.stripe.com/YOUR_SUB_LINK',      // Unlimited monthly — $4.99/mo
+};
+
+// Support link (Buy Me a Coffee / Ko-fi)
+const SUPPORT_LINK = 'https://buymeacoffee.com/YOUR_USERNAME';
+
+// Valid redemption codes — pre-generated, distributed after payment
+// In production, store SHA256 hashes, not plaintext
+const REDEMPTION_PACKS = {
+  'FREEREADING': 3,    // Demo — remove in production
 };
 
 function getCredits() {
@@ -53,12 +61,11 @@ function consumeReading() {
 
 function redeemCode(code) {
   const normalized = code.trim().toUpperCase();
-  if (!VALID_CODES[normalized]) return false;
+  const amount = REDEMPTION_PACKS[normalized];
+  if (!amount) return false;
   const c = getCredits();
   if (c.usedCodes && c.usedCodes.includes(normalized)) return 'used';
 
-  const packs = { 'FREEREADING': 3, 'WISDOM10': 10, 'WISDOM50': 50 };
-  const amount = packs[normalized] || 5;
   c.purchased += amount;
   if (!c.usedCodes) c.usedCodes = [];
   c.usedCodes.push(normalized);
@@ -78,7 +85,7 @@ function showCreditModal() {
   overlay.id = 'credit-modal';
   overlay.className = 'modal-overlay';
   overlay.innerHTML = `
-    <div class="modal" style="max-width:440px;">
+    <div class="modal" style="max-width:480px;">
       <button class="modal-close" onclick="document.getElementById('credit-modal').remove()">✕</button>
       <h3 style="margin-bottom:1.5rem;">${total > 0 ? 'Your Credits' : 'Out of Readings'}</h3>
 
@@ -98,17 +105,45 @@ function showCreditModal() {
       </div>
 
       ${total === 0 ? `
-        <p style="color:var(--ink-3);font-style:italic;margin-bottom:1.5rem;">
-          Your daily free readings have been used. The well replenishes at midnight.<br>
-          Or offer tea to the sage for more wisdom.
+        <p style="color:var(--ink-3);font-style:italic;margin-bottom:1.5rem;text-align:center;">
+          Your daily free readings have been used.<br>The well replenishes at midnight.
         </p>
       ` : ''}
 
-      <a href="${BUY_LINK}" target="_blank" rel="noopener" class="btn-primary" style="display:block;text-align:center;margin-bottom:0.8rem;text-decoration:none;font-size:1rem;">
-        ☕ Buy Readings — from $4.99
+      <p style="font-size:0.8rem;color:var(--ink-4);text-align:center;margin-bottom:1rem;letter-spacing:0.06em;">ACQUIRE MORE READINGS</p>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.8rem;margin-bottom:0.8rem;">
+        <a href="${PAYMENT_LINKS.pack5}" target="_blank" rel="noopener" style="text-decoration:none;display:block;padding:1rem 0.8rem;border:1px solid var(--ink-5);text-align:center;transition:all 0.3s;"
+           onmouseover="this.style.borderColor='var(--cinnabar)';this.style.boxShadow='0 4px 12px var(--shadow)'"
+           onmouseout="this.style.borderColor='var(--ink-5)';this.style.boxShadow='none'">
+          <div style="font-size:1.5rem;margin-bottom:0.3rem;">☯</div>
+          <div style="font-weight:600;">5 Readings</div>
+          <div style="color:var(--cinnabar);font-size:1.1rem;">$2.99</div>
+          <div style="font-size:0.7rem;color:var(--ink-4);">One-time</div>
+        </a>
+        <a href="${PAYMENT_LINKS.pack20}" target="_blank" rel="noopener" style="text-decoration:none;display:block;padding:1rem 0.8rem;border:1px solid var(--cinnabar);text-align:center;transition:all 0.3s;background:rgba(196,58,49,0.04);"
+           onmouseover="this.style.boxShadow='0 4px 12px var(--shadow)'"
+           onmouseout="this.style.boxShadow='none'">
+          <div style="font-size:1.5rem;margin-bottom:0.3rem;">☯☯</div>
+          <div style="font-weight:600;">20 Readings</div>
+          <div style="color:var(--cinnabar);font-size:1.1rem;">$7.99</div>
+          <div style="font-size:0.7rem;color:var(--ink-4);">Best value</div>
+        </a>
+      </div>
+
+      <a href="${PAYMENT_LINKS.sub}" target="_blank" rel="noopener" style="text-decoration:none;display:block;padding:0.9rem;border:1px solid var(--jade);text-align:center;margin-bottom:1.2rem;transition:all 0.3s;"
+         onmouseover="this.style.background='rgba(90,122,106,0.05)'"
+         onmouseout="this.style.background='transparent'">
+        <span style="font-weight:600;">✨ Unlimited Monthly</span>
+        <span style="color:var(--jade);margin-left:0.5rem;">$4.99/mo</span>
+        <span style="display:block;font-size:0.7rem;color:var(--ink-4);">Cancel anytime</span>
       </a>
 
-      <div style="margin-top:1.5rem;padding-top:1rem;border-top:1px solid var(--ink-5);">
+      <div style="margin:1rem 0;text-align:center;">
+        <a href="${SUPPORT_LINK}" target="_blank" rel="noopener" style="color:var(--ink-4);font-size:0.85rem;text-decoration:none;border-bottom:1px dotted var(--ink-5);">☕ Or simply offer tea to the sage</a>
+      </div>
+
+      <div style="padding-top:1rem;border-top:1px solid var(--ink-5);">
         <p style="font-size:0.85rem;color:var(--ink-4);margin-bottom:0.5rem;">Already purchased? Redeem your code:</p>
         <div style="display:flex;gap:0.5rem;">
           <input type="text" id="redeem-input" class="question-input"
@@ -118,13 +153,13 @@ function showCreditModal() {
         <p id="redeem-msg" style="font-size:0.8rem;margin-top:0.5rem;min-height:1.2em;"></p>
       </div>
 
-      <p style="margin-top:1.5rem;font-size:0.75rem;color:var(--ink-4);">
-        Free readings reset daily at midnight UTC. Purchased credits never expire.
+      <p style="margin-top:1.2rem;font-size:0.7rem;color:var(--ink-4);text-align:center;">
+        Free readings reset daily at midnight UTC. Credits never expire.<br>
+        Payments processed securely by Stripe.
       </p>
     </div>
   `;
 
-  // Close on overlay click
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) overlay.remove();
   });
@@ -399,12 +434,50 @@ function shareResult(name) {
   const hex = divinationState.result;
   if (!hex) return;
 
-  // Copy share text
-  const shareText = `I cast Hexagram ${hex.n}: "${hex.name}" (${hex.cn})\n\n"${hex.judgment}"\n\nConsult the I-Ching Oracle for your own reading.`;
+  const hexUrl = `${SITE_URL}/?hex=${hex.n}`;
+  const shareText = `I cast Hexagram ${hex.n}: "${hex.name}" (${hex.cn})\n\n"${hex.judgment}"\n\nTry the I-Ching Oracle: ${SITE_URL}`;
+  const tweetText = encodeURIComponent(`I cast Hexagram ${hex.n}: "${hex.name}" — "${hex.judgment}"\n\nTry the I-Ching Oracle:`);
+
+  const shareHTML = `
+    <div class="modal-overlay" id="share-modal" onclick="if(event.target===this)this.remove()">
+      <div class="modal" style="max-width:420px;">
+        <button class="modal-close" onclick="document.getElementById('share-modal').remove()">✕</button>
+        <h3>Share Your Reading</h3>
+
+        <div class="share-card-preview" style="margin:1.5rem 0;">
+          <div class="hexagram-number">Hexagram ${hex.n}</div>
+          <div class="hexagram-name" style="font-size:1.4rem;">${hex.name}</div>
+          <div class="hex-symbol" style="font-size:1.3rem;">${hex.symbol}</div>
+          <div style="font-style:italic;color:var(--ink-2);font-size:0.9rem;">"${hex.judgment}"</div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:0.7rem;">
+          <a href="https://twitter.com/intent/tweet?text=${tweetText}&url=${encodeURIComponent(SITE_URL)}"
+             target="_blank" rel="noopener" class="btn-primary"
+             style="text-align:center;text-decoration:none;background:var(--ink-1);">
+            🐦 Share on X / Twitter
+          </a>
+          <button class="btn-secondary" onclick="copyShareLink()">
+            📋 Copy Link
+          </button>
+        </div>
+        <p id="copy-msg" style="font-size:0.8rem;margin-top:0.8rem;text-align:center;min-height:1.2em;"></p>
+      </div>
+    </div>`;
+
+  document.body.insertAdjacentHTML('beforeend', shareHTML);
+}
+
+function copyShareLink() {
+  const hex = divinationState.result;
+  if (!hex) return;
+  const shareText = `I cast Hexagram ${hex.n}: "${hex.name}" (${hex.cn})\n\n"${hex.judgment}"\n\nTry it yourself: ${SITE_URL}`;
   navigator.clipboard.writeText(shareText).then(() => {
-    alert('Reading copied! Share it with your friends.\n\n' + shareText);
+    const msg = document.getElementById('copy-msg');
+    if (msg) msg.innerHTML = '<span style="color:var(--jade);">✓ Copied! Share it anywhere.</span>';
   }).catch(() => {
-    alert(shareText);
+    const msg = document.getElementById('copy-msg');
+    if (msg) msg.textContent = shareText;
   });
 }
 
