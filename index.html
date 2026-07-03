@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>I-Ching Oracle — Ancient Wisdom, Modern Guidance</title>
+  <meta name="description" content="Cast the ancient Chinese coins and receive wisdom from the I-Ching. Discover your hexagram, explore Taoist wellness practices, and connect with 3,000 years of Eastern philosophy.">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☯</text></svg>">
+</head>
+<body>
+
+<!-- Navigation -->
+<nav>
+  <a href="#" class="brand" onclick="navigate('home')">I-Ching <span>Oracle</span></a>
+  <ul class="links">
+    <li><a href="#" data-page="home" class="active" onclick="navigate('home')">Home</a></li>
+    <li><a href="#" data-page="divination" onclick="startDivination()">Cast</a></li>
+    <li><a href="#" data-page="gallery" onclick="navigate('gallery')">64 Gates</a></li>
+    <li><a href="#" data-page="wellness" onclick="navigate('wellness')">Wellness</a></li>
+    <li><a href="#" onclick="showCreditModal()" style="color:var(--cinnabar);" title="Credits &amp; Purchase">☯ <span id="credit-badge">3</span></a></li>
+  </ul>
+</nav>
+
+<!-- HOME -->
+<div id="home" class="page active">
+  <div class="hero-mountain"></div>
+  <div class="hero-coin" onclick="startDivination()" title="Begin your divination">☯</div>
+  <h1 class="hero-title">I-Ching Oracle</h1>
+  <p class="hero-subtitle">Cast three coins. The ancient Chinese wisdom answers.</p>
+  <button class="btn-primary" onclick="startDivination()">Begin Your Divination</button>
+</div>
+
+<!-- DIVINATION -->
+<div id="divination" class="page">
+  <div class="container">
+    <h2>Cast the Oracle</h2>
+    <p style="color:var(--ink-3);margin-bottom:2rem;">Hold your question in your heart. Press <strong>Space</strong> or click to cast the coins six times.</p>
+
+    <div class="divination-steps">
+      <div class="step active">
+        <div class="step-num">1</div>
+        <span>Cast Coins</span>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <span>Build Hexagram</span>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <span>Read Wisdom</span>
+      </div>
+    </div>
+
+    <div class="question-area">
+      <input type="text" id="question-input" class="question-input"
+             placeholder="What is in your heart? (optional)"
+             maxlength="120">
+    </div>
+
+    <div class="coin-container" id="coin-result"></div>
+
+    <div class="hexagram-area" id="hex-area">
+      <p style="color:var(--ink-4);font-style:italic;">Focus on your question. Then toss the coins.</p>
+    </div>
+
+    <button class="btn-primary" id="toss-btn" onclick="tossCoins()" style="margin-bottom:2rem;">
+      Toss the Coins
+    </button>
+
+    <div id="result-card"></div>
+  </div>
+</div>
+
+<!-- GALLERY -->
+<div id="gallery" class="page">
+  <div class="container">
+    <h2>The 64 Gates</h2>
+    <p style="color:var(--ink-3);margin-bottom:2rem;">Browse every hexagram. Click any to read its wisdom. Each is a doorway into the ancient Chinese understanding of change.</p>
+    <div class="hex-grid" id="gallery-grid"></div>
+  </div>
+</div>
+
+<!-- WELLNESS -->
+<div id="wellness" class="page">
+  <div class="container">
+    <h2>Taoist Wellness</h2>
+    <p style="color:var(--ink-3);margin-bottom:2rem;">The Eight Brocades (八段锦) — an ancient qigong practice used by Taoist masters for over a thousand years. Simple movements, profound effects.</p>
+    <div class="wellness-grid" id="wellness-grid"></div>
+  </div>
+</div>
+
+<footer>
+  <p>I-Ching Oracle — Bridging ancient Eastern wisdom with the modern seeker.</p>
+  <p style="margin-top:0.5rem;">
+    <a href="#" onclick="showCreditModal()" style="color:var(--cinnabar);text-decoration:none;">☕ Offer Tea to the Sage</a>
+    &nbsp;·&nbsp;
+    <a href="https://buymeacoffee.com/YOUR_USERNAME" target="_blank" rel="noopener" style="color:var(--ink-4);">Support This Oracle</a>
+  </p>
+  <p style="margin-top:0.5rem;">☯ 道可道，非常道 ☯</p>
+</footer>
+
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
