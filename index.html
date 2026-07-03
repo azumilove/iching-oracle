@@ -7,8 +7,37 @@
   <meta name="description" content="Cast the ancient Chinese coins and receive wisdom from the I-Ching. Discover your hexagram, explore Taoist wellness practices, and connect with 3,000 years of Eastern philosophy.">
   <link rel="stylesheet" href="css/style.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☯</text></svg>">
+  <!-- Google AdSense -->
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX" crossorigin="anonymous"></script>
 </head>
 <body>
+
+<!-- Ad Left Rail -->
+<div class="ad-rail ad-left" id="ad-left">
+  <div class="ad-label">Advertisement</div>
+  <div class="ad-slot">
+    <!-- AdSense Ad Unit -->
+    <ins class="adsbygoogle"
+         style="display:block"
+         data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
+         data-ad-slot="0000000000"
+         data-ad-format="vertical"
+         data-full-width-responsive="false"></ins>
+  </div>
+</div>
+
+<!-- Ad Right Rail -->
+<div class="ad-rail ad-right" id="ad-right">
+  <div class="ad-label">Advertisement</div>
+  <div class="ad-slot">
+    <ins class="adsbygoogle"
+         style="display:block"
+         data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
+         data-ad-slot="0000000001"
+         data-ad-format="vertical"
+         data-full-width-responsive="false"></ins>
+  </div>
+</div>
 
 <!-- Navigation -->
 <nav>
@@ -18,7 +47,7 @@
     <li><a href="#" data-page="divination" onclick="startDivination()">Cast</a></li>
     <li><a href="#" data-page="gallery" onclick="navigate('gallery')">64 Gates</a></li>
     <li><a href="#" data-page="wellness" onclick="navigate('wellness')">Wellness</a></li>
-    <li><a href="#" onclick="showCreditModal()" style="color:var(--cinnabar);" title="Credits &amp; Purchase">☯ <span id="credit-badge">3</span></a></li>
+    <li><a href="#" onclick="showCreditModal()" style="color:var(--cinnabar);" title="Readings &amp; Share">☯ <span id="credit-badge">3</span></a></li>
   </ul>
 </nav>
 
@@ -69,6 +98,17 @@
     </button>
 
     <div id="result-card"></div>
+
+    <!-- In-content Ad -->
+    <div class="ad-inline" id="ad-inline">
+      <div class="ad-label">Advertisement</div>
+      <ins class="adsbygoogle"
+           style="display:block;text-align:center;"
+           data-ad-layout="in-article"
+           data-ad-format="fluid"
+           data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
+           data-ad-slot="0000000002"></ins>
+    </div>
   </div>
 </div>
 
@@ -93,14 +133,19 @@
 <footer>
   <p>I-Ching Oracle — Bridging ancient Eastern wisdom with the modern seeker.</p>
   <p style="margin-top:0.5rem;">
-    <a href="#" onclick="showCreditModal()" style="color:var(--cinnabar);text-decoration:none;">☕ Offer Tea to the Sage</a>
+    <a href="#" onclick="showCreditModal()" style="color:var(--cinnabar);text-decoration:none;">📤 Share to Earn Readings</a>
     &nbsp;·&nbsp;
-    <a href="#" onclick="showCreditModal()" style="color:var(--ink-4);">Get More Readings</a>
+    <a href="#" onclick="showCreditModal()" style="color:var(--ink-4);">More Readings</a>
   </p>
   <p style="margin-top:0.5rem;">☯ 道可道，非常道 ☯</p>
 </footer>
 
 <script src="js/data.js"></script>
 <script src="js/app.js"></script>
+
+<!-- Initialize AdSense -->
+<script>
+  try { (adsbygoogle = window.adsbygoogle || []).push({}); } catch(e) {}
+</script>
 </body>
 </html>

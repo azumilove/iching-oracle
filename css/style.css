@@ -521,6 +521,137 @@ nav .links a:hover, nav .links a.active { color: var(--cinnabar); }
   line-height: 1.8;
 }
 
+/* === AD RAILS === */
+.ad-rail {
+  position: fixed;
+  top: 60px;
+  width: 160px;
+  z-index: 50;
+}
+
+.ad-left  { left: max(10px, calc((100vw - 900px) / 2 - 180px)); }
+.ad-right { right: max(10px, calc((100vw - 900px) / 2 - 180px)); }
+
+.ad-label {
+  font-size: 0.6rem;
+  color: var(--ink-5);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  text-align: center;
+  margin-bottom: 0.5rem;
+}
+
+.ad-slot {
+  min-height: 400px;
+  background: rgba(235, 228, 216, 0.3);
+  border: 1px dashed var(--ink-5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-5);
+  font-size: 0.65rem;
+}
+
+.ad-inline {
+  max-width: 600px;
+  margin: 2rem auto;
+  min-height: 90px;
+  background: rgba(235, 228, 216, 0.3);
+  border: 1px dashed var(--ink-5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+/* === CREDIT DISPLAY === */
+.credit-display {
+  margin-bottom: 1.2rem;
+  padding: 0.8rem;
+  background: rgba(90,122,106,0.05);
+  border-radius: 4px;
+}
+
+.credit-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.3rem 0;
+  font-size: 0.9rem;
+}
+
+/* === SHARE PLATFORM BUTTONS === */
+.share-platforms {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.share-platform-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.7rem 0.9rem;
+  background: transparent;
+  border: 1px solid var(--ink-5);
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.25s;
+  color: var(--ink-2);
+  text-align: left;
+}
+
+.share-platform-btn:hover:not(.earned) {
+  background: rgba(90,122,106,0.06);
+  border-color: var(--jade);
+  transform: translateX(3px);
+}
+
+.share-platform-btn.earned {
+  opacity: 0.5;
+  cursor: default;
+  background: rgba(90,122,106,0.03);
+}
+
+.share-platform-btn .platform-icon {
+  font-size: 1.2rem;
+  width: 28px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.share-platform-btn .platform-name {
+  flex: 1;
+}
+
+.share-platform-btn .platform-status {
+  font-size: 0.75rem;
+  color: var(--ink-4);
+  white-space: nowrap;
+}
+
+.share-platform-btn:not(.earned) .platform-status {
+  color: var(--jade);
+  font-weight: 600;
+}
+
+/* === SHARE CARD PREVIEW === */
+.share-card-preview {
+  padding: 1rem;
+  background: rgba(196,58,49,0.03);
+  border: 1px solid var(--ink-5);
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+/* === RESPONSIVE: hide ads on mobile === */
+@media (max-width: 1100px) {
+  .ad-rail { display: none; }
+}
+
 /* FOOTER */
 footer {
   text-align: center;

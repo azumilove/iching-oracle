@@ -1,93 +1,102 @@
 // I-Ching Oracle — Application Logic
+// Social-powered: share to earn readings. No payment needed.
 
-// === Credit System ===
-const CREDITS_KEY = 'iching_credits';
+const CREDITS_KEY = 'iching_v2';
 const DAILY_FREE = 3;
+const MAX_BONUS = 5; // max bonus readings from sharing
 const SITE_URL = 'https://azumilove.github.io/iching-oracle';
 
-// Payment gateway — use Gumroad (works from China, auto-delivers license keys)
-// 1. Sign up at https://gumroad.com
-// 2. Create 3 products, enable "Generate license keys"
-// 3. Set post-purchase redirect: https://azumilove.github.io/iching-oracle/?key={license_key}
-// 4. Paste your product URLs below
-const GUMROAD = {
-  pack5:  'https://YOUR_USERNAME.gumroad.com/l/iching-5',   // 5 readings — $2.99
-  pack20: 'https://YOUR_USERNAME.gumroad.com/l/iching-20',  // 20 readings — $7.99
-  sub:    'https://YOUR_USERNAME.gumroad.com/l/iching-sub', // Unlimited monthly — $4.99/mo
-};
+// Share platforms — each gives +1 reading once per day
+const PLATFORMS = [
+  { id: 'twitter',  name: 'X / Twitter',    icon: '𝕏', color: '#1a1a1a' },
+  { id: 'facebook', name: 'Facebook',        icon: 'f', color: '#1877F2' },
+  { id: 'reddit',   name: 'Reddit',          icon: '⟐', color: '#FF4500' },
+  { id: 'whatsapp', name: 'WhatsApp',        icon: '💬', color: '#25D366' },
+  { id: 'telegram', name: 'Telegram',        icon: '✈', color: '#26A5E4' },
+  { id: 'copy',     name: 'Copy Link',       icon: '📋', color: '#5a7a6a' },
+];
 
-// Support link (Buy Me a Coffee / Ko-fi)
-const SUPPORT_LINK = 'https://buymeacoffee.com/YOUR_USERNAME';
+// AdSense config — replace with your publisher ID when approved
+const ADSENSE_ID = 'ca-pub-XXXXXXXXXXXXXXXX'; // ← replace after Google approval
 
-// Valid redemption codes — Gumroad auto-generates these as license keys.
-// Paste your generated keys here. Each key = N readings.
-// User gets auto-redeemed when visiting ?key=XXXXX
-const REDEMPTION_PACKS = {
-  'FREEREADING': 3,    // Demo — remove in production
-  // Add your Gumroad license keys below, e.g.:
-  // 'ICHING-A1B2-C3D4': 5,
-  // 'ICHING-E5F6-G7H8': 20,
-};
-
-function getCredits() {
+function getState() {
   const raw = localStorage.getItem(CREDITS_KEY);
-  if (!raw) return { free: DAILY_FREE, purchased: 0, lastReset: today(), usedCodes: [] };
-  const data = JSON.parse(raw);
-  // Daily reset
-  if (data.lastReset !== today()) {
-    data.free = DAILY_FREE;
-    data.lastReset = today();
-  }
-  return data;
+  const def = { free: DAILY_FREE, sharedToday: {}, lastReset: today() };
+  if (!raw) return def;
+  try {
+    const data = JSON.parse(raw);
+    if (data.lastReset !== today()) {
+      return { ...def };
+    }
+    // migrate old format
+    if (!data.sharedToday) data.sharedToday = {};
+    return data;
+  } catch(e) { return def; }
 }
 
-function saveCredits(data) {
-  localStorage.setItem(CREDITS_KEY, JSON.stringify(data));
+function saveState(s) {
+  localStorage.setItem(CREDITS_KEY, JSON.stringify(s));
 }
 
-function today() {
-  return new Date().toISOString().split('T')[0];
+function today() { return new Date().toISOString().split('T')[0]; }
+
+function bonusReadings() {
+  const s = getState();
+  return Object.keys(s.sharedToday).length;
 }
 
 function availableReadings() {
-  const c = getCredits();
-  return c.free + c.purchased;
+  const s = getState();
+  return s.free + bonusReadings();
 }
 
 function consumeReading() {
-  const c = getCredits();
-  if (c.free > 0) {
-    c.free--;
-  } else if (c.purchased > 0) {
-    c.purchased--;
-  } else {
-    return false;
+  const s = getState();
+  if (s.free > 0) {
+    s.free--;
+    saveState(s);
+    return true;
   }
-  saveCredits(c);
+  // bonus readings are not "consumed" — they're earned permanently for today
+  // once you have bonus, free runs out first; bonus is your safety net
+  if (bonusReadings() > 0) {
+    // bonus readings are not decremented — they represent "extra today"
+    saveState(s);
+    return true;
+  }
+  return false;
+}
+
+function shareAndEarn(platformId) {
+  const s = getState();
+  if (s.sharedToday[platformId]) return false; // already shared here today
+  s.sharedToday[platformId] = true;
+  saveState(s);
+  updateCreditBadge();
   return true;
 }
 
-function redeemCode(code) {
-  const normalized = code.trim().toUpperCase();
-  const amount = REDEMPTION_PACKS[normalized];
-  if (!amount) return false;
-  const c = getCredits();
-  if (c.usedCodes && c.usedCodes.includes(normalized)) return 'used';
-
-  c.purchased += amount;
-  if (!c.usedCodes) c.usedCodes = [];
-  c.usedCodes.push(normalized);
-  saveCredits(c);
-  return amount;
-}
-
+// === Share Modal w/ "earn readings" ===
 function showCreditModal() {
   const existing = document.getElementById('credit-modal');
   if (existing) existing.remove();
 
-  const c = getCredits();
-  const total = c.free + c.purchased;
-  const freeLeft = c.free;
+  const s = getState();
+  const total = availableReadings();
+  const bonus = bonusReadings();
+
+  const platformButtons = PLATFORMS.map(p => {
+    const earned = s.sharedToday[p.id];
+    return `
+      <button class="share-platform-btn ${earned ? 'earned' : ''}"
+              ${earned ? 'disabled' : ''}
+              onclick="doShare('${p.id}')"
+              style="border-left:3px solid ${p.color};">
+        <span class="platform-icon">${p.icon}</span>
+        <span class="platform-name">${p.name}</span>
+        <span class="platform-status">${earned ? '✓ Earned' : '+1 reading'}</span>
+      </button>`;
+  }).join('');
 
   const overlay = document.createElement('div');
   overlay.id = 'credit-modal';
@@ -95,75 +104,43 @@ function showCreditModal() {
   overlay.innerHTML = `
     <div class="modal" style="max-width:480px;">
       <button class="modal-close" onclick="document.getElementById('credit-modal').remove()">✕</button>
-      <h3 style="margin-bottom:1.5rem;">${total > 0 ? 'Your Credits' : 'Out of Readings'}</h3>
 
-      <div style="margin-bottom:1.5rem;padding:1rem;background:rgba(90,122,106,0.06);border-radius:4px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
-          <span>☀ Free Daily Readings</span>
-          <span style="font-weight:600;">${freeLeft} / ${DAILY_FREE}</span>
+      <h3 style="margin-bottom:0.5rem;">${total > 0 ? 'Your Readings Today' : 'Out of Readings'}</h3>
+
+      <div class="credit-display">
+        <div class="credit-row">
+          <span>☀ Free Daily</span>
+          <span>${s.free} / ${DAILY_FREE}</span>
         </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;">
-          <span>💎 Purchased Credits</span>
-          <span style="font-weight:600;">${c.purchased}</span>
+        <div class="credit-row">
+          <span>🔗 Earned from Sharing</span>
+          <span>${bonus} / ${MAX_BONUS}</span>
         </div>
-        <div style="border-top:1px solid var(--ink-5);margin-top:0.5rem;padding-top:0.5rem;display:flex;justify-content:space-between;font-weight:600;">
+        <div class="credit-row" style="font-weight:600;border-top:1px solid var(--ink-5);padding-top:0.5rem;margin-top:0.3rem;">
           <span>Total Available</span>
           <span style="color:var(--cinnabar);">${total}</span>
         </div>
       </div>
 
       ${total === 0 ? `
-        <p style="color:var(--ink-3);font-style:italic;margin-bottom:1.5rem;text-align:center;">
-          Your daily free readings have been used.<br>The well replenishes at midnight.
+        <p style="color:var(--ink-3);font-style:italic;text-align:center;margin:1rem 0;">
+          Your free readings are done for today.<br>Share to earn more — each platform gives +1.
         </p>
       ` : ''}
 
-      <p style="font-size:0.8rem;color:var(--ink-4);text-align:center;margin-bottom:1rem;letter-spacing:0.06em;">ACQUIRE MORE READINGS</p>
+      <p style="font-size:0.8rem;color:var(--ink-4);text-align:center;margin:1rem 0 0.5rem;letter-spacing:0.06em;">
+        SHARE TO EARN MORE READINGS
+      </p>
+      <p style="font-size:0.7rem;color:var(--ink-4);text-align:center;margin-bottom:0.8rem;">
+        Each platform you share on gives <strong>+1 reading</strong> today (max ${MAX_BONUS} bonus)
+      </p>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.8rem;margin-bottom:0.8rem;">
-        <a href="${GUMROAD.pack5}" target="_blank" rel="noopener"style="text-decoration:none;display:block;padding:1rem 0.8rem;border:1px solid var(--ink-5);text-align:center;transition:all 0.3s;"
-           onmouseover="this.style.borderColor='var(--cinnabar)';this.style.boxShadow='0 4px 12px var(--shadow)'"
-           onmouseout="this.style.borderColor='var(--ink-5)';this.style.boxShadow='none'">
-          <div style="font-size:1.5rem;margin-bottom:0.3rem;">☯</div>
-          <div style="font-weight:600;">5 Readings</div>
-          <div style="color:var(--cinnabar);font-size:1.1rem;">$2.99</div>
-          <div style="font-size:0.7rem;color:var(--ink-4);">One-time</div>
-        </a>
-        <a href="${GUMROAD.pack20}" target="_blank" rel="noopener" style="text-decoration:none;display:block;padding:1rem 0.8rem;border:1px solid var(--cinnabar);text-align:center;transition:all 0.3s;background:rgba(196,58,49,0.04);"
-           onmouseover="this.style.boxShadow='0 4px 12px var(--shadow)'"
-           onmouseout="this.style.boxShadow='none'">
-          <div style="font-size:1.5rem;margin-bottom:0.3rem;">☯☯</div>
-          <div style="font-weight:600;">20 Readings</div>
-          <div style="color:var(--cinnabar);font-size:1.1rem;">$7.99</div>
-          <div style="font-size:0.7rem;color:var(--ink-4);">Best value</div>
-        </a>
-      </div>
-
-      <a href="${GUMROAD.sub}" target="_blank" rel="noopener" style="text-decoration:none;display:block;padding:0.9rem;border:1px solid var(--jade);text-align:center;margin-bottom:1.2rem;transition:all 0.3s;"
-         onmouseover="this.style.background='rgba(90,122,106,0.05)'"
-         onmouseout="this.style.background='transparent'">
-        <span style="font-weight:600;">✨ Unlimited Monthly</span>
-        <span style="color:var(--jade);margin-left:0.5rem;">$4.99/mo</span>
-        <span style="display:block;font-size:0.7rem;color:var(--ink-4);">Cancel anytime</span>
-      </a>
-
-      <div style="margin:1rem 0;text-align:center;">
-        <a href="${SUPPORT_LINK}" target="_blank" rel="noopener" style="color:var(--ink-4);font-size:0.85rem;text-decoration:none;border-bottom:1px dotted var(--ink-5);">☕ Or simply offer tea to the sage</a>
-      </div>
-
-      <div style="padding-top:1rem;border-top:1px solid var(--ink-5);">
-        <p style="font-size:0.85rem;color:var(--ink-4);margin-bottom:0.5rem;">Already purchased? Redeem your code:</p>
-        <div style="display:flex;gap:0.5rem;">
-          <input type="text" id="redeem-input" class="question-input"
-                 placeholder="Enter code" style="max-width:none;text-align:left;font-size:0.9rem;">
-          <button class="btn-secondary" onclick="handleRedeem()" style="white-space:nowrap;">Redeem</button>
-        </div>
-        <p id="redeem-msg" style="font-size:0.8rem;margin-top:0.5rem;min-height:1.2em;"></p>
+      <div class="share-platforms">
+        ${platformButtons}
       </div>
 
       <p style="margin-top:1.2rem;font-size:0.7rem;color:var(--ink-4);text-align:center;">
-        Free readings reset daily at midnight UTC. Credits never expire.<br>
-        Payments processed securely by Gumroad.
+        Free readings reset daily at midnight UTC. Earned bonus also resets.
       </p>
     </div>
   `;
@@ -171,46 +148,72 @@ function showCreditModal() {
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) overlay.remove();
   });
-
   document.body.appendChild(overlay);
 }
 
-function handleRedeem() {
-  const input = document.getElementById('redeem-input');
-  const msg = document.getElementById('redeem-msg');
-  const code = input.value.trim();
+function doShare(platformId) {
+  const shareMsg = buildShareMessage();
+  const encodedMsg = encodeURIComponent(shareMsg.text);
+  const encodedUrl = encodeURIComponent(SITE_URL);
 
-  if (!code) {
-    msg.innerHTML = '<span style="color:var(--cinnabar);">Enter a code to redeem.</span>';
-    return;
+  let shareUrl;
+  switch (platformId) {
+    case 'twitter':
+      shareUrl = `https://twitter.com/intent/tweet?text=${encodedMsg}&url=${encodedUrl}`;
+      break;
+    case 'facebook':
+      shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}&quote=${encodedMsg}`;
+      break;
+    case 'reddit':
+      shareUrl = `https://www.reddit.com/submit?url=${encodedUrl}&title=${encodeURIComponent(shareMsg.title)}`;
+      break;
+    case 'whatsapp':
+      shareUrl = `https://wa.me/?text=${encodeURIComponent(shareMsg.text + ' ' + SITE_URL)}`;
+      break;
+    case 'telegram':
+      shareUrl = `https://t.me/share/url?url=${encodedUrl}&text=${encodedMsg}`;
+      break;
+    case 'copy':
+      navigator.clipboard.writeText(shareMsg.text + ' ' + SITE_URL).then(() => {
+        onShareDone(platformId);
+      }).catch(() => {});
+      return; // no window.open for copy
   }
 
-  const result = redeemCode(code);
-  if (result === 'used') {
-    msg.innerHTML = '<span style="color:var(--cinnabar);">This code has already been used.</span>';
-  } else if (result === false) {
-    msg.innerHTML = '<span style="color:var(--cinnabar);">Invalid code. Please check and try again.</span>';
-  } else {
-    msg.innerHTML = `<span style="color:var(--jade);">✓ ${result} readings added! You now have ${availableReadings()} readings.</span>`;
-    input.value = '';
-    updateCreditBadge();
+  // Open share window
+  window.open(shareUrl, '_blank', 'width=600,height=400');
 
-    // Refresh the credit display
-    setTimeout(() => {
-      const modal = document.getElementById('credit-modal');
-      if (modal) {
-        modal.remove();
-        showCreditModal();
-      }
-    }, 1500);
+  // Mark as earned (assume user completed share)
+  onShareDone(platformId);
+}
+
+function onShareDone(platformId) {
+  const earned = shareAndEarn(platformId);
+  if (earned) {
+    showToast(`✓ +1 reading earned from sharing!`);
+    // Refresh modal
+    const modal = document.getElementById('credit-modal');
+    if (modal) {
+      modal.remove();
+      showCreditModal();
+    }
   }
+}
+
+function buildShareMessage() {
+  const hex = divinationState.result;
+  const text = hex
+    ? `I cast Hexagram ${hex.n}: "${hex.name}" — "${hex.judgment}"\n\nConsult the ancient I-Ching yourself:`
+    : `I just consulted the I-Ching Oracle — an ancient Chinese wisdom tool. Cast your own coins in an ink-wash temple:\n\n`;
+  const title = hex
+    ? `I-Ching Oracle: Hexagram ${hex.n} — ${hex.name}`
+    : 'I-Ching Oracle — Ancient Chinese Wisdom';
+  return { text, title };
 }
 
 function updateCreditBadge() {
   const badge = document.getElementById('credit-badge');
-  if (badge) {
-    badge.textContent = availableReadings();
-  }
+  if (badge) badge.textContent = availableReadings();
 }
 
 // === Navigation ===
@@ -226,7 +229,6 @@ function navigate(page) {
 
   if (page === 'gallery') renderGallery();
   if (page === 'wellness') renderWellness();
-
   window.scrollTo(0, 0);
 }
 
@@ -237,15 +239,10 @@ document.querySelectorAll('nav .links a').forEach(link => {
   });
 });
 
-// === Divination State ===
-let divinationState = {
-  phase: 'idle', // idle | tossing | complete
-  lines: [],     // {value: 6|7|8|9, changing: bool}
-  currentLine: 0
-};
+// === Divination ===
+let divinationState = { phase: 'idle', lines: [], currentLine: 0 };
 
 function startDivination() {
-  // Check credits before allowing
   if (availableReadings() <= 0) {
     showCreditModal();
     return;
@@ -260,8 +257,6 @@ function resetDivination() {
   document.getElementById('coin-result').innerHTML = '';
   document.getElementById('result-card').innerHTML = '';
   document.getElementById('question-input').value = '';
-
-  // Reset steps
   document.querySelectorAll('.step').forEach((s, i) => {
     s.classList.remove('active', 'done');
     if (i === 0) s.classList.add('active');
@@ -271,7 +266,6 @@ function resetDivination() {
 function updateSteps() {
   const steps = document.querySelectorAll('.step');
   const line = divinationState.currentLine;
-
   steps.forEach((s, i) => {
     s.classList.remove('active', 'done');
     if (i === 0 && line < 6) s.classList.add('active');
@@ -285,52 +279,29 @@ function updateSteps() {
 function tossCoins() {
   if (divinationState.currentLine >= 6) return;
 
-  const area = document.getElementById('hex-area');
   const coinDisplay = document.getElementById('coin-result');
-
-  // Simulate three coins
   let sum = 0;
-  for (let i = 0; i < 3; i++) {
-    sum += Math.random() < 0.5 ? 2 : 3; // 2 = yin (tails), 3 = yang (heads)
-  }
+  for (let i = 0; i < 3; i++) sum += Math.random() < 0.5 ? 2 : 3;
 
-  // sum: 6=old yin(changing), 7=young yang(static), 8=young yin(static), 9=old yang(changing)
-  const lineValue = sum;
-  const isChanging = (lineValue === 6 || lineValue === 9);
-  const isYang = (lineValue === 7 || lineValue === 9);
-
-  divinationState.lines.push({ value: lineValue, changing: isChanging, yang: isYang });
+  const isChanging = (sum === 6 || sum === 9);
+  const isYang = (sum === 7 || sum === 9);
+  divinationState.lines.push({ value: sum, changing: isChanging, yang: isYang });
   divinationState.currentLine++;
 
-  // Coin animation
   const coinSymbols = { 6: '⚋⚋⚋', 7: '⚊⚋⚊', 8: '⚋⚊⚋', 9: '⚊⚊⚊' };
-  const coinMeanings = {
-    6: 'Old Yin — changing',
-    7: 'Young Yang — stable',
-    8: 'Young Yin — stable',
-    9: 'Old Yang — changing'
-  };
+  const coinMeanings = { 6: 'Old Yin — changing', 7: 'Young Yang — stable', 8: 'Young Yin — stable', 9: 'Old Yang — changing' };
 
   coinDisplay.innerHTML = `
-    <div style="font-size:2rem;margin-bottom:0.3rem;">${coinSymbols[lineValue]}</div>
-    <div style="font-size:0.8rem;color:${isChanging ? 'var(--cinnabar)' : 'var(--ink-3)'}">
-      ${coinMeanings[lineValue]}
-    </div>
-  `;
+    <div style="font-size:2rem;margin-bottom:0.3rem;">${coinSymbols[sum]}</div>
+    <div style="font-size:0.8rem;color:${isChanging ? 'var(--cinnabar)' : 'var(--ink-3)'}">${coinMeanings[sum]}</div>`;
 
-  // Render lines so far
   renderLines();
-
-  if (divinationState.currentLine >= 6) {
-    setTimeout(() => revealResult(), 1200);
-  }
+  if (divinationState.currentLine >= 6) setTimeout(() => revealResult(), 1200);
 }
 
 function renderLines() {
   const area = document.getElementById('hex-area');
   let html = '';
-
-  // Bottom to top (line 1 at bottom)
   for (let i = 0; i < 6; i++) {
     if (i < divinationState.lines.length) {
       const line = divinationState.lines[i];
@@ -355,25 +326,13 @@ function renderLines() {
       </div>` + html;
     }
   }
-
   area.innerHTML = html;
 }
 
 function getHexagramNumber(lines) {
-  // Convert bottom-to-top lines to hexagram number (King Wen sequence)
-  // Build binary: yang=1, yin=0, bottom line = LSB
   let binary = 0;
-  for (let i = 0; i < 6; i++) {
-    if (lines[i].yang) binary |= (1 << i);
-  }
-  // Map binary to King Wen sequence number
-  // This is the Fu Xi binary ordering mapped to King Wen
-  const binaryToKingWen = [
-    2, 23, 8, 20, 16, 35, 45, 12, 15, 52, 39, 53, 62, 56, 31, 33,
-    7, 4, 29, 59, 40, 64, 47, 6, 46, 18, 48, 57, 32, 50, 28, 44,
-    24, 27, 3, 42, 51, 21, 17, 25, 36, 22, 63, 37, 55, 30, 49, 13,
-    19, 41, 60, 61, 54, 38, 58, 10, 11, 26, 5, 9, 34, 14, 43, 1
-  ];
+  for (let i = 0; i < 6; i++) if (lines[i].yang) binary |= (1 << i);
+  const binaryToKingWen = [2,23,8,20,16,35,45,12,15,52,39,53,62,56,31,33,7,4,29,59,40,64,47,6,46,18,48,57,32,50,28,44,24,27,3,42,51,21,17,25,36,22,63,37,55,30,49,13,19,41,60,61,54,38,58,10,11,26,5,9,34,14,43,1];
   return binaryToKingWen[binary] || 1;
 }
 
@@ -383,15 +342,12 @@ function revealResult() {
   const hex = ICHING.find(h => h.n === hexNum);
   if (!hex) return;
 
-  // Consume a reading credit
   consumeReading();
   updateCreditBadge();
-
   divinationState.result = hex;
   updateSteps();
 
-  // Check for changing lines
-  const changingLines = lines.map((l, i) => l.changing ? i : -1).filter(i => i >= 0);
+  const changingIdx = lines.map((l, i) => l.changing ? i : -1).filter(i => i >= 0);
 
   let cardHTML = `
     <div class="result-card">
@@ -403,11 +359,8 @@ function revealResult() {
       <div class="judgment-text">"${hex.judgment}"</div>
       <div class="interpretation">${hex.interpretation}</div>`;
 
-  if (changingLines.length > 0) {
-    const changedLines = lines.map(l => {
-      if (l.changing) return { ...l, yang: !l.yang, changing: false };
-      return { ...l };
-    });
+  if (changingIdx.length > 0) {
+    const changedLines = lines.map(l => l.changing ? { ...l, yang: !l.yang, changing: false } : { ...l });
     const changedNum = getHexagramNumber(changedLines);
     const changedHex = ICHING.find(h => h.n === changedNum);
     if (changedHex && changedHex.n !== hex.n) {
@@ -429,8 +382,8 @@ function revealResult() {
   cardHTML += `
       <div class="result-actions">
         <button class="btn-primary" onclick="startDivination()">Cast Again</button>
-        <button class="btn-secondary" onclick="shareResult('${hex.name}')">Share Card</button>
-        <button class="btn-secondary" onclick="navigate('gallery')">Hexagram Gallery</button>
+        <button class="btn-secondary" onclick="shareResult()">📤 Share & Earn</button>
+        <button class="btn-secondary" onclick="navigate('gallery')">📖 Gallery</button>
       </div>
     </div>`;
 
@@ -438,62 +391,77 @@ function revealResult() {
   document.getElementById('result-card').scrollIntoView({ behavior: 'smooth' });
 }
 
-function shareResult(name) {
+function shareResult() {
+  const existing = document.getElementById('share-modal');
+  if (existing) existing.remove();
+
   const hex = divinationState.result;
-  if (!hex) return;
+  const s = getState();
+  const shareText = hex
+    ? `I cast Hexagram ${hex.n}: "${hex.name}" — "${hex.judgment}"`
+    : 'I just consulted the ancient I-Ching Oracle';
 
-  const hexUrl = `${SITE_URL}/?hex=${hex.n}`;
-  const shareText = `I cast Hexagram ${hex.n}: "${hex.name}" (${hex.cn})\n\n"${hex.judgment}"\n\nTry the I-Ching Oracle: ${SITE_URL}`;
-  const tweetText = encodeURIComponent(`I cast Hexagram ${hex.n}: "${hex.name}" — "${hex.judgment}"\n\nTry the I-Ching Oracle:`);
+  const platformButtons = PLATFORMS.map(p => {
+    const earned = s.sharedToday[p.id];
+    return `
+      <button class="share-platform-btn ${earned ? 'earned' : ''}"
+              ${earned ? 'disabled' : ''}
+              onclick="doShareFromModal('${p.id}')"
+              style="border-left:3px solid ${p.color};">
+        <span class="platform-icon">${p.icon}</span>
+        <span class="platform-name">${p.name}</span>
+        <span class="platform-status">${earned ? '✓ Earned' : '+1 reading'}</span>
+      </button>`;
+  }).join('');
 
-  const shareHTML = `
-    <div class="modal-overlay" id="share-modal" onclick="if(event.target===this)this.remove()">
-      <div class="modal" style="max-width:420px;">
-        <button class="modal-close" onclick="document.getElementById('share-modal').remove()">✕</button>
-        <h3>Share Your Reading</h3>
+  const overlay = document.createElement('div');
+  overlay.id = 'share-modal';
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:420px;">
+      <button class="modal-close" onclick="document.getElementById('share-modal').remove()">✕</button>
+      <h3>Share & Earn Readings</h3>
+      <p style="color:var(--ink-3);font-size:0.85rem;text-align:center;margin:0.5rem 0 1rem;">
+        Share on any platform below to earn <strong>+1 reading</strong> today
+      </p>
 
-        <div class="share-card-preview" style="margin:1.5rem 0;">
+      ${hex ? `
+        <div class="share-card-preview">
           <div class="hexagram-number">Hexagram ${hex.n}</div>
-          <div class="hexagram-name" style="font-size:1.4rem;">${hex.name}</div>
-          <div class="hex-symbol" style="font-size:1.3rem;">${hex.symbol}</div>
-          <div style="font-style:italic;color:var(--ink-2);font-size:0.9rem;">"${hex.judgment}"</div>
+          <div class="hexagram-name" style="font-size:1.3rem;">${hex.name}</div>
+          <div class="hex-symbol" style="font-size:1.1rem;">${hex.symbol}</div>
+          <div style="font-style:italic;color:var(--ink-2);font-size:0.85rem;">"${hex.judgment}"</div>
         </div>
+      ` : ''}
 
-        <div style="display:flex;flex-direction:column;gap:0.7rem;">
-          <a href="https://twitter.com/intent/tweet?text=${tweetText}&url=${encodeURIComponent(SITE_URL)}"
-             target="_blank" rel="noopener" class="btn-primary"
-             style="text-align:center;text-decoration:none;background:var(--ink-1);">
-            🐦 Share on X / Twitter
-          </a>
-          <button class="btn-secondary" onclick="copyShareLink()">
-            📋 Copy Link
-          </button>
-        </div>
-        <p id="copy-msg" style="font-size:0.8rem;margin-top:0.8rem;text-align:center;min-height:1.2em;"></p>
+      <div class="share-platforms">
+        ${platformButtons}
       </div>
-    </div>`;
+    </div>
+  `;
 
-  document.body.insertAdjacentHTML('beforeend', shareHTML);
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) overlay.remove();
+  });
+  document.body.appendChild(overlay);
 }
 
-function copyShareLink() {
-  const hex = divinationState.result;
-  if (!hex) return;
-  const shareText = `I cast Hexagram ${hex.n}: "${hex.name}" (${hex.cn})\n\n"${hex.judgment}"\n\nTry it yourself: ${SITE_URL}`;
-  navigator.clipboard.writeText(shareText).then(() => {
-    const msg = document.getElementById('copy-msg');
-    if (msg) msg.innerHTML = '<span style="color:var(--jade);">✓ Copied! Share it anywhere.</span>';
-  }).catch(() => {
-    const msg = document.getElementById('copy-msg');
-    if (msg) msg.textContent = shareText;
-  });
+function doShareFromModal(platformId) {
+  doShare(platformId);
+  // Refresh share modal
+  setTimeout(() => {
+    const modal = document.getElementById('share-modal');
+    if (modal) {
+      modal.remove();
+      shareResult();
+    }
+  }, 300);
 }
 
 // === Gallery ===
 function renderGallery() {
   const grid = document.getElementById('gallery-grid');
   if (!grid) return;
-
   let html = '';
   ICHING.forEach(hex => {
     html += `
@@ -510,9 +478,8 @@ function renderGallery() {
 function showHexDetail(n) {
   const hex = ICHING.find(h => h.n === n);
   if (!hex) return;
-
   divinationState.result = hex;
-  divinationState.lines = []; // clear for display
+  divinationState.lines = [];
 
   let cardHTML = `
     <div class="result-card">
@@ -523,11 +490,9 @@ function showHexDetail(n) {
       <div class="judgment-label">Judgment</div>
       <div class="judgment-text">"${hex.judgment}"</div>
       <div class="interpretation">${hex.interpretation}</div>`;
-
   if (hex.wellness) {
     cardHTML += `<div class="wellness-tip"><strong>☯ Wellness Guidance</strong><br>${hex.wellness}</div>`;
   }
-
   cardHTML += `
       <div class="result-actions">
         <button class="btn-primary" onclick="startDivination()">Cast Your Own</button>
@@ -546,7 +511,6 @@ function showHexDetail(n) {
 function renderWellness() {
   const grid = document.getElementById('wellness-grid');
   if (!grid) return;
-
   let html = '';
   WELLNESS.forEach(w => {
     html += `
@@ -555,106 +519,56 @@ function renderWellness() {
         <h3>${w.name}</h3>
         <div style="font-size:0.9rem;color:var(--ink-4);margin-bottom:0.8rem;">${w.cn}</div>
         <p>${w.description}</p>
-        <p style="margin-top:0.8rem;color:var(--jade);font-size:0.85rem;">
-          <strong>Benefits:</strong> ${w.benefit}
-        </p>
-      </div>
-    `;
+        <p style="margin-top:0.8rem;color:var(--jade);font-size:0.85rem;"><strong>Benefits:</strong> ${w.benefit}</p>
+      </div>`;
   });
   grid.innerHTML = html;
 }
 
-// === Keyboard shortcuts ===
+// === Keyboard ===
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && document.activeElement === document.getElementById('question-input')) {
-    tossCoins();
-  }
+  if (e.key === 'Enter' && document.activeElement === document.getElementById('question-input')) tossCoins();
   if (e.key === ' ' && divinationState.currentLine < 6 && document.getElementById('divination').classList.contains('active')) {
     e.preventDefault();
     tossCoins();
   }
 });
 
-// === Auto-Redeem from URL (for Gumroad post-purchase redirect) ===
-function checkAutoRedeem() {
-  const params = new URLSearchParams(window.location.search);
-  const key = params.get('key') || params.get('code') || params.get('license');
-  if (!key) return;
-
-  const result = redeemCode(key);
-  if (result === 'used') {
-    showToast('This code has already been redeemed.');
-  } else if (result === false) {
-    showToast('Invalid code. Please check your email for the correct code.');
-  } else if (result) {
-    showToast(`✓ Payment confirmed! ${result} readings added to your account.`);
-    updateCreditBadge();
-  }
-
-  // Clean URL (don't show the key in browser history)
-  window.history.replaceState({}, '', window.location.pathname);
-}
-
+// === Toast ===
 function showToast(msg) {
   const existing = document.getElementById('auto-toast');
   if (existing) existing.remove();
-
   const toast = document.createElement('div');
   toast.id = 'auto-toast';
-  toast.style.cssText = `
-    position:fixed;bottom:2rem;left:50%;transform:translateX(-50%);z-index:300;
-    background:var(--ink-1);color:var(--paper);padding:1rem 2rem;
-    font-family:'Cormorant Garamond',serif;font-size:1rem;
-    border:1px solid var(--ink-5);box-shadow:0 8px 30px var(--shadow-strong);
-    animation:slideUp 0.5s cubic-bezier(0.4,0,0.2,1);
-    max-width:90vw;text-align:center;
-  `;
+  toast.style.cssText = `position:fixed;bottom:2rem;left:50%;transform:translateX(-50%);z-index:300;background:var(--ink-1);color:var(--paper);padding:1rem 2rem;font-family:'Cormorant Garamond',serif;font-size:1rem;border:1px solid var(--ink-5);box-shadow:0 8px 30px var(--shadow-strong);animation:slideUp 0.5s cubic-bezier(0.4,0,0.2,1);max-width:90vw;text-align:center;`;
   toast.textContent = msg;
   document.body.appendChild(toast);
-  setTimeout(() => {
-    toast.style.opacity = '0';
-    toast.style.transition = 'opacity 0.5s';
-    setTimeout(() => toast.remove(), 500);
-  }, 4000);
+  setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.5s'; setTimeout(() => toast.remove(), 500); }, 4000);
 }
 
-// Add slideUp keyframe
-const style = document.createElement('style');
-style.textContent = '@keyframes slideUp{from{opacity:0;transform:translateX(-50%) translateY(20px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}';
-document.head.appendChild(style);
+// === Init ===
+if (!document.querySelector('#slideUp-keyframes')) {
+  const s = document.createElement('style');
+  s.id = 'slideUp-keyframes';
+  s.textContent = '@keyframes slideUp{from{opacity:0;transform:translateX(-50%) translateY(20px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}';
+  document.head.appendChild(s);
+}
 
-// === Initialize ===
 document.addEventListener('DOMContentLoaded', () => {
-  // Auto-redeem from URL params (Gumroad redirect)
-  checkAutoRedeem();
-
-  // Update credit badge
   updateCreditBadge();
 
-  // Draw hero mountain SVG
   const mountainEl = document.querySelector('.hero-mountain');
   if (mountainEl) {
     mountainEl.innerHTML = `
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 220" preserveAspectRatio="xMidYMid meet">
         <defs>
-          <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="#1a1a1a" stop-opacity="0.7"/>
-            <stop offset="100%" stop-color="#1a1a1a" stop-opacity="0.08"/>
-          </linearGradient>
-          <linearGradient id="g2" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="#1a1a1a" stop-opacity="0.25"/>
-            <stop offset="100%" stop-color="#1a1a1a" stop-opacity="0.0"/>
-          </linearGradient>
+          <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1a1a1a" stop-opacity="0.7"/><stop offset="100%" stop-color="#1a1a1a" stop-opacity="0.08"/></linearGradient>
+          <linearGradient id="g2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1a1a1a" stop-opacity="0.25"/><stop offset="100%" stop-color="#1a1a1a" stop-opacity="0.0"/></linearGradient>
         </defs>
-        <!-- Far mountains -->
         <path d="M0 220 L100 90 L180 130 L260 50 L340 110 L430 30 L520 100 L600 60 L600 220Z" fill="url(#g2)"/>
-        <!-- Mid mountains -->
         <path d="M0 220 L150 130 L230 160 L310 85 L390 140 L470 70 L550 130 L600 100 L600 220Z" fill="url(#g1)"/>
-        <!-- Near mountains -->
         <path d="M0 220 L200 180 L300 200 L380 160 L460 190 L550 150 L600 170 L600 220Z" fill="#1a1a1a" fill-opacity="0.12"/>
-        <!-- Mist -->
         <ellipse cx="300" cy="175" rx="280" ry="15" fill="#f5f0e8" opacity="0.4"/>
-        <!-- Sun/moon circle -->
         <circle cx="480" cy="45" r="16" fill="#c43a31" fill-opacity="0.07"/>
       </svg>`;
   }
