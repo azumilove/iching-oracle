@@ -5,11 +5,11 @@ const CREDITS_KEY = 'iching_credits';
 const DAILY_FREE = 3;
 const SITE_URL = 'https://azumilove.github.io/iching-oracle';
 
-// Payment links — create these on https://stripe.com (free account, 2 min)
+// Payment links — created via Stripe API
 const PAYMENT_LINKS = {
-  pack5:  'https://buy.stripe.com/YOUR_PACK_5_LINK',   // 5 readings — $2.99
-  pack20: 'https://buy.stripe.com/YOUR_PACK_20_LINK',  // 20 readings — $7.99
-  sub:    'https://buy.stripe.com/YOUR_SUB_LINK',      // Unlimited monthly — $4.99/mo
+  pack5:  'https://buy.stripe.com/test_4gMbIT22W9fq63u1Vfgbm00',   // 5 readings — $2.99
+  pack20: 'https://buy.stripe.com/test_6oUbITbDwaju8bC1Vfgbm01',  // 20 readings — $7.99
+  sub:    'https://buy.stripe.com/test_28E28jfTMgHS9fGarLgbm02',      // Unlimited monthly — $4.99/mo
 };
 
 // Support link (Buy Me a Coffee / Ko-fi)
